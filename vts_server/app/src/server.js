@@ -54,7 +54,7 @@ io = new Server({
   maxHttpBufferSize: 1e7,
   pingTimeout: 60000,
   cors: {
-    origin: 'https://106.255.237.50:8080',
+    origin: 'https://dev.enjoystreet.kr',
     methods: ['GET', 'POST'],
     allowedHeaders: ['my-custom-header'],
     credentials: true,
@@ -87,7 +87,7 @@ app.use(
     secret: process.env.COOKIE_SECRET,
     cookie: {
       httpOnly: true, 
-      secure: true, 
+      secure: false, 
       maxAge: 2000 * 60 * 60 // 2 hour
     },
     store: new SequelizeStore({
@@ -109,6 +109,7 @@ app.set('io', io);
 app.use('/', apiHandler)
 
 
+
 const iceServers = [
   {
     urls: [
@@ -121,7 +122,9 @@ const iceServers = [
   },
 ]
 
-
+server.listen(port, () => {
+	console.log('server is runnning...')
+})
 
 
 io.sockets.on('connect', (socket) => {

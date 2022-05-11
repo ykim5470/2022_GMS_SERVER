@@ -13,6 +13,7 @@ const Models = require('../../../models')
 
 router.get('/createRoomNumber', (req, res) => {
   console.log(req.session)
+  console.log(req.user)
   const randomRoomId = uuidV4()
   try {
     return res.status(200).json({ roomId: randomRoomId })
@@ -43,7 +44,9 @@ router.get('/guideRoomList', async (req, res) => {
 })
 
 router.get('/roomList', async (req, res) => {
-  let roomList = await Models.Channel.findAll({
+	console.log(req.user)
+	console.log(req.session)  
+let roomList = await Models.Channel.findAll({
   include: [
     {
       model: Models.ChannelSetConfig,
@@ -78,6 +81,8 @@ router.post('/roomCreate', liveThumbnailMulterSet.single('thumbnail'), async (re
   const { fieldname, originalname, destination, filename, path, size } =
     req.file
 
+	console.log(req.body)
+	console.log(req.file)
 
   await Models.Channel.create({
     RoomId: roomId,
@@ -103,6 +108,7 @@ router.post('/roomCreate', liveThumbnailMulterSet.single('thumbnail'), async (re
 
   res.status(200).json('roomCreate sucess')
 }catch(err){
+  console.log(err)
   res.status(400).json(err)
 }
 })
@@ -169,6 +175,8 @@ router.post('/recordMediaUpload',recResourceUpload.array('resources',  2), async
 
 router.post('/guideLogin',passport.authenticate('local'),(req,res,next)=>{
   try{
+	console.log('login post request from client')
+	console.log(req.session)
     res.status(200).json({token: req.session.passport.user})
   }catch(err){
     console.error(err)
