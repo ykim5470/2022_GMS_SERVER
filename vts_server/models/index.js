@@ -18,6 +18,7 @@ const StoreProductDetail = require('./commerce/store_product_detail')
 const StoreProductCategory = require('./commerce/store_product_category')
 
 const User = require('./users/user')
+const UserMy = require('./users/user_my')
 
 
 
@@ -59,6 +60,7 @@ db.StoreProductDetail = StoreProductDetail
 db.StoreProductCategory = StoreProductCategory
 
 db.User = User
+db.UserMy = UserMy
 
 
 
@@ -76,6 +78,7 @@ StoreProductCategory.init(sequelize)
 
 
 User.init(sequelize)
+UserMy.init(sequelize)
 
 
 Channel.hasMany(ChannelSetConfig, {
@@ -115,6 +118,12 @@ StoreBrand.hasOne(StoreProductDetail, {
 
 StoreProductCategory.hasOne(StoreProductDetail, {
   foreignKey: 'CategoryId',
+  onDelete: 'cascade'
+})
+
+
+User.hasOne(UserMy, {
+  as: 'usermy',
   onDelete: 'cascade'
 })
 module.exports = db

@@ -16,13 +16,14 @@ const { sequelize } = require('../../models')
 const apiHandler = require('./apis/index')
 const app = express()
 
+
 const Logger = require('./helpers/Logger')
 const log = new Logger('server')
 
 
 const SequelizeStore = require('connect-session-sequelize')(session.Store)
 const port = process.env.PORT || 5000 
-const isHttps = false
+const isHttps = process.env.NODE_ENV === 'production' ? false : true   
 
 let io, server, host
 
@@ -30,17 +31,13 @@ if (isHttps) {
   const fs = require('fs')
   const options = {
     key: fs.readFileSync(
-      path.join(__dirname, '../ssl/enjoystreet.com_20210630C19D.key.pem'),
+      path.join(__dirname, '../ssl/enjoystreet.kr_2022041891003.key.pem'),
       'utf-8',
     ),
     cert: fs.readFileSync(
-      path.join(__dirname, '../ssl/enjoystreet.com_20210630C19D.crt.pem'),
+      path.join(__dirname, '../ssl/enjoystreet.kr_2022041891003.ca-bundle.pem'),
       'utf-8',
-    ),
-    ca: fs.readFileSync(
-      path.join(__dirname, '../ssl/enjoystreet.com_20210630C19D.ca-bundle.pem'),
-      'utf-8',
-    ),
+    )
   }
 
   server = https.createServer(options, app)
@@ -73,9 +70,9 @@ sequelize
 
 const { swaggerUi, swaggerJsDoc } = require('../api/swagger')
 
+
 const apiBasePath = '/api/v1' 
 const api_docs = host + apiBasePath + '/docs' 
-const api_key_secret = process.env.API_KEY_SECRET || 'mirotalk_default_secret'
 let channels = {} 
 let sockets = {} 
 let peers = {} 
@@ -103,8 +100,7 @@ app.use(passport.initialize())
 app.use(passport.session()) 
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsDoc)) 
-
-app.use('/uploads', express.static(path.join(__dirname + '/uploads/GUIDE/streaming/live/thumbnailSource/')))
+app.use('/uploads', express.static(path.join(__dirname + '/middle/uploads/GUIDE/streaming/live/thumbnailSource/')))
 app.set('io', io); 
 app.use('/', apiHandler)
 
@@ -130,11 +126,17 @@ server.listen(port, () => {
 io.sockets.on('connect', (socket) => {
   log.debug('[' + socket.id + '] connection accepted')
 
+  
+
   socket.channels = {}
   sockets[socket.id] = socket
 
   socket.on('disconnect', (reason) => {
+    console.log('이건 소켓 채널')
+    console.log(socket.channels)
     for (let channel in socket.channels) {
+      console.log('방')
+      console.log(channel)
       removePeerFrom(channel)
     }
     delete sockets[socket.id]
@@ -226,8 +228,15 @@ io.sockets.on('connect', (socket) => {
         break
     }
 
+    console.log('여기 타고 와서 삭제를 하는데')
     for (let id in channels[channel]) {
+      console.log('전체 채널에 특정 채널 id에 remove peer 이벤트 보냄, config는 socket.id이다. 그냥 id를 보내야 하나?')
+      console.log(id)
+      console.log('이거 보니까 removePeer가 두개 있다. 하나는 host에 보내고 하나는 자신 제외 peer에 보내는 듯 한데?')
+      console.log('이건 channels[channel][id]에 보내는 것. socket.id를 config로 보냄')
+      console.log(channels[channel][id])
       await channels[channel][id].emit('removePeer', { peer_id: socket.id })
+      console.log('이건 socket에 보내는 것. id를 config로 보냄')
       socket.emit('removePeer', { peer_id: id })
     }
   }
@@ -422,6 +431,13 @@ io.sockets.on('connect', (socket) => {
     let room_id = config.room_id
     sendToRoom(room_id, socket.id, 'whiteboardAction', config)
   })
+
+  socket.on('likeAdd', (data)=>{
+    const {currentLikeCount, roomId} = data
+    let addedLikeCount = currentLikeCount +1
+    io.sockets.emit('addedLikeCount',addedLikeCount)
+  })
+
 }) 
 
 

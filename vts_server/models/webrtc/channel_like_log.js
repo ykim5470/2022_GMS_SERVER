@@ -17,7 +17,7 @@ module.exports = class ChannelLikeLog extends Sequelize.Model {
           allowNull: false,
         },
         Like: {
-          type: Sequelize.STRING,
+          type: Sequelize.BOOLEAN,
           allowNull: false,
         },
       },

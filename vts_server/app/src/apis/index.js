@@ -9,11 +9,13 @@ const liveThumbnailMulterSet = require('../middle/multer/liveThumbnailMulter')
 const recResourceUpload = require('../middle/multer/recUploadMulter')
 const fileSizeFormatter = require('../helpers/fileUploaderController')
 const Models = require('../../../models')
+const { sequelize } = require('../../../models')
 
-
+/**
+ * Unique Room ID 
+ * @return {UUID}
+ */
 router.get('/createRoomNumber', (req, res) => {
-  console.log(req.session)
-  console.log(req.user)
   const randomRoomId = uuidV4()
   try {
     return res.status(200).json({ roomId: randomRoomId })
@@ -23,14 +25,105 @@ router.get('/createRoomNumber', (req, res) => {
 })
 
 
-router.get('/guideRoomList', async (req, res) => {
+/**
+ * Room Information
+ * @returns {Array}
+ */
+router.get('/roomInfo/:id', async(req,res)=>{
+  const {id} = req.params
 
+  let roomTitle = await Models.ChannelSetConfig.findOne({
+    where: {RoomId: id},
+    attributes: ['Title']
+  })
+
+  let likeLog = await Models.ChannelLikeLog.findAll({
+    where: {RoomId: id}
+  })
+  
+  
+  let likeCountTotal = likeLog.length
+
+  console.log(likeCountTotal)
+
+  const {Title} = roomTitle
+  
+  return res.status(200).json({
+    title: Title,
+    likeCountTotal: likeCountTotal
+  })
+})
+
+
+/**
+ * Host Information
+ * @returns {Array}
+ */
+ router.get('/hostInfo/:id', async(req,res)=>{
+  const {id} = req.params
+
+  let hostId = await Models.ChannelSetConfig.findOne({
+    where: {RoomId: id},
+    attributes: [ 'Host']
+  })
+
+  const { Host} = hostId 
+  let hostInfo = await Models.UserMy.findOne({
+    where: {id: Host},
+    attributes: ['nickName', 'profile_image']
+  })
+
+  const {nickName, profile_image} = hostInfo
+  
+  
+  return res.status(200).json({
+    nickName: nickName,
+    profileImage : profile_image
+  })
+})
+
+/**
+ * brand Information
+ * @returns {Array}
+ */
+ router.get('/brandInfo/:id', async(req,res)=>{
+  const {id} = req.params
+
+
+  let brandInfoJson = await Models.ChannelSetConfig.findOne({
+    where: {roomId : id},
+    attributes : ['BrandConfig']
+  })
+  
+  const {BrandConfig} = brandInfoJson
+
+  let productList = await Promise.all(BrandConfig.map((el) => {
+    let brandId = el.id
+    let productItems =  Models.StoreProductDetail.findAll({
+      where:  {StoreBrandId: brandId},
+      attributes: ['Name', 'Price', 'Stock', 'Image']
+    })
+    return productItems
+    }))    
+
+  return res.status(200).json(
+    productList
+  )
+})
+
+
+
+/**
+ *  Guide Rec Contents 
+ * @returns {Array} 
+ */
+router.get('/guideRoomList', async (req, res) => {
    let roomList = await Models.Channel.findAll({
    include: [
      {
        model: Models.ChannelSetConfig,
        as: 'setConfig',
-       attributes: ['Title', 'Host', 'Thumbnail', 'RoomCategory', 'CreatedAt']
+       attributes: ['Title', 'Host', 'Thumbnail', 'CreatedAt']
      }
    ],
    attributes: ['RoomId']
@@ -44,14 +137,12 @@ router.get('/guideRoomList', async (req, res) => {
 })
 
 router.get('/roomList', async (req, res) => {
-	console.log(req.user)
-	console.log(req.session)  
 let roomList = await Models.Channel.findAll({
   include: [
     {
       model: Models.ChannelSetConfig,
       as: 'setConfig',
-      attributes: ['Title', 'Host', 'Thumbnail', 'RoomCategory', 'CreatedAt']
+      attributes: ['Title', 'Host', 'Thumbnail', 'CreatedAt']
     }
   ],
   where:{IsActivate: 1},
@@ -64,52 +155,65 @@ let roomList = await Models.Channel.findAll({
  res.status(200).json(roomListObject)
 })
 
+/**
+ * brand items List
+ * @returns {Array}
+ */
+router.get('/brandList', async(req,res)=>{
+  try{
+    let brandList = await Models.StoreBrand.findAll({
+      attributes: ['Id','Name']
+    })
+    res.status(200).json(brandList)
+    
+
+  }catch(err){
+    console.error(err)
+    res.status(500).json(err)
+  }
+})
 
 
+/**
+ * Create Live Channel
+ * @argument {guideId} int
+ * @argument {title} str
+ * @argument {roomId} uuid 
+ * @argument {brandConfig} array
+ * @argument {filename} formData
+ */
 router.post('/roomCreate', liveThumbnailMulterSet.single('thumbnail'), async (req, res) => {
+  const sequelizeTransaction = await sequelize.transaction()
   try{
   const {
-    title,
-    host,
-    roomId,
-    roomCategory,
-    storePath,
-    storeCategory,
-    storeId,
-    productId,
+    guideInfo, title, roomId, brandConfig
   } = req.body
   const { fieldname, originalname, destination, filename, path, size } =
     req.file
 
-	console.log(req.body)
-	console.log(req.file)
-
+  const guideId = JSON.parse(guideInfo).token.id
+  
   await Models.Channel.create({
     RoomId: roomId,
-  })
+  }, {transaction: sequelizeTransaction})
 
   await Models.ChannelSetConfig.create({
     RoomId: roomId,
     Title: title,
-    Host: host,
+    Host: guideId,
     Thumbnail: filename,
-    RoomCategory: roomCategory,
-  }).then((result) => {    
+    BrandConfig: brandConfig
+  }, {transaction: sequelizeTransaction}).then((result) => {    
     return result
   })
 
-  await Models.ChannelProductConfig.create({
-    RoomId: roomId,
-    StorePath: storePath,
-    StoreCategory: storeCategory,
-    StoreId: storeId,
-    ProductId: productId,
-  })
 
+  await sequelizeTransaction.commit()
   res.status(200).json('roomCreate sucess')
 }catch(err){
   console.log(err)
   res.status(400).json(err)
+  await sequelizeTransaction.rollback()
 }
 })
 
@@ -172,6 +276,25 @@ router.post('/recordMediaUpload',recResourceUpload.array('resources',  2), async
   }
 })
 
+
+router.post('/addLike', async(req,res)=>{
+  const sequelizeTransaction = await sequelize.transaction()
+  try{  
+  const {RoomId, UserSocketId, action} = req.body
+  await Models.ChannelLikeLog.create({
+    RoomId: RoomId, 
+    User: UserSocketId, 
+    Like: action 
+  },{transaction: sequelizeTransaction})
+
+  await sequelizeTransaction.commit()
+
+  res.status(200).json('add like to the channel success')
+  }catch(err){
+    console.log(err)
+    res.status(500).json(err)
+  }
+})
 
 router.post('/guideLogin',passport.authenticate('local'),(req,res,next)=>{
   try{

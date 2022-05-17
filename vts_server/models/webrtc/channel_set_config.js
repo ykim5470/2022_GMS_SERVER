@@ -17,17 +17,17 @@ module.exports = class ChannelSetConfig extends Sequelize.Model {
           allowNull: false,
         },
         Host: {
-          type: Sequelize.STRING,
+          type: Sequelize.INTEGER,
           allowNull: false,
         },
         Thumbnail: {
           type: Sequelize.STRING,
           allowNull: false,
         },
-        RoomCategory: {
-          type: Sequelize.STRING,
-          allowNull: false,
-        },
+        BrandConfig: {
+          type: Sequelize.JSON,
+          allowNull: false
+        }
       },
       {
         sequelize,
