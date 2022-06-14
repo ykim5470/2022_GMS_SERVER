@@ -13,10 +13,12 @@ const storage = multer.diskStorage({
   filename: (req, file, callback) => {
     callback(
       null,
-      req.body.roomId +'_'+ Date.now() + '.' + file.mimetype.split('/')[1],
+      req.params.sid +'_'+ Date.now() + '.' + file.mimetype.split('/')[1],
     )
 
   },
 })
 
-module.exports = multer({ storage: storage })
+var upload = multer({storage: storage})
+var recordResources = upload.fields([{name: 'thumbnail'}, {name: 'media'}])
+module.exports = recordResources

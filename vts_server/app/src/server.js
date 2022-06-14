@@ -7,7 +7,7 @@ const http = require('http')
 const https = require('https')
 const compression = require('compression')
 const express = require('express')
-const session= require('express-session')
+const session = require('express-session')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
 const passport = require('passport')
@@ -22,8 +22,10 @@ const log = new Logger('server')
 
 
 const SequelizeStore = require('connect-session-sequelize')(session.Store)
-const port = process.env.PORT || 5000 
-const isHttps = process.env.NODE_ENV === 'production' ? false : true   
+// const port = process.env.PORT || 5000 
+const port = 3000
+// const isHttps = process.env.NODE_ENV === 'production' ? false : true  
+const isHttps = false
 
 let io, server, host
 
@@ -41,17 +43,17 @@ if (isHttps) {
   }
 
   server = https.createServer(options, app)
-  host = 'https://' + 'localhost' + ':' + port
+  host = 'https://' + 'live.enjoystreet.kr' + ':' + port
 } else {
   server = http.createServer(app)
-  host = 'https://' + 'localhost' + ':' + port
+  host = 'https://' + 'live.enjoystreet.kr' + ':' + port
 }
 
 io = new Server({
   maxHttpBufferSize: 1e7,
   pingTimeout: 60000,
   cors: {
-    origin: 'https://dev.enjoystreet.kr',
+    origin: ['https://live.enjoystreet.kr', 'https://internal.enjoystreet.kr'],
     methods: ['GET', 'POST'],
     allowedHeaders: ['my-custom-header'],
     credentials: true,
@@ -71,37 +73,38 @@ sequelize
 const { swaggerUi, swaggerJsDoc } = require('../api/swagger')
 
 
-const apiBasePath = '/api/v1' 
-const api_docs = host + apiBasePath + '/docs' 
-let channels = {} 
-let sockets = {} 
-let peers = {} 
+const apiBasePath = '/api/v1'
+const api_docs = host + apiBasePath + '/docs'
+let channels = {}
+let sockets = {}
+let peers = {}
 
 app.use(
   session({
     resave: false,
-    saveUninitialized: true, 
+    saveUninitialized: true,
     secret: process.env.COOKIE_SECRET,
     cookie: {
-      httpOnly: true, 
-      secure: false, 
+      httpOnly: true,
+      secure: false,
       maxAge: 2000 * 60 * 60 // 2 hour
     },
     store: new SequelizeStore({
-      db: sequelize
+      db: sequelize,
+      table: "Sessions"
     })
   })
 )
 app.use(cookieParser())
-app.use(cors()) 
+app.use(cors())
 app.use(compression())
-app.use(express.json()) 
-app.use(passport.initialize()) 
-app.use(passport.session()) 
+app.use(express.json())
+app.use(passport.initialize())
+app.use(passport.session())
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsDoc)) 
-app.use('/uploads', express.static(path.join(__dirname + '/middle/uploads/GUIDE/streaming/live/thumbnailSource/')))
-app.set('io', io); 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJsDoc))
+app.use('/uploads', express.static(path.join(__dirname + '/middle/uploads/GUIDE/streaming/')))
+app.set('io', io);
 app.use('/', apiHandler)
 
 
@@ -119,14 +122,14 @@ const iceServers = [
 ]
 
 server.listen(port, () => {
-	console.log('server is runnning...')
+  console.log('server is runnning...')
 })
 
 
 io.sockets.on('connect', (socket) => {
   log.debug('[' + socket.id + '] connection accepted')
 
-  
+
 
   socket.channels = {}
   sockets[socket.id] = socket
@@ -144,12 +147,14 @@ io.sockets.on('connect', (socket) => {
 
   socket.on('join', (config) => {
     let channel = config.channel
+    let peer_geo = config.peer_geo
     let peer_name = config.peer_name
     let peer_role = config.peer_role
     let peer_video = config.peer_video
     let peer_audio = config.peer_audio
     let peer_hand = config.peer_hand
     let peer_rec = config.peer_rec
+
 
     if (channel in socket.channels) {
       return
@@ -158,10 +163,6 @@ io.sockets.on('connect', (socket) => {
 
     if (!(channel in peers)) peers[channel] = {}
 
-    if (peers[channel]['Locked'] === true) {
-      socket.emit('roomIsLocked')
-      return
-    }
 
     peers[channel][socket.id] = {
       peer_name: peer_name,
@@ -178,12 +179,24 @@ io.sockets.on('connect', (socket) => {
     socket.channels[channel] = channel
   })
 
-  socket.on('chatting', (config) =>{
-	const {channel, peer_id, msg} = config 
-  for(let id in channels[channel]) {
-    if(id !== peer_id){
-      channels[channel][id].emit('receiveChat', {from: peer_id, msg: msg})
+  socket.on('chatting', (config) => {
+    const { channel, peer_id, msg, nick } = config
+    for (let id in channels[channel]) {
+      if (id !== peer_id) {
+        channels[channel][id].emit('receiveChat', { from: peer_id, msg: msg, nick: nick })
+      }
     }
+  })
+
+  socket.on('likeAdd', (data) => {
+    const { channel, peer_id, currentLikeCount } = data
+    let addedLikeCount = currentLikeCount + 1
+    console.log(addedLikeCount)
+    console.log(channels[channel])
+    for (let id in channels[channel]) {
+
+      channels[channel][id].emit('addedLikeCount', { addedLikeCount: addedLikeCount, from: peer_id })
+
     }
   })
 
@@ -215,6 +228,8 @@ io.sockets.on('connect', (socket) => {
       return
     }
 
+    let removeRequestPeerRole = peers[channel][socket.id]['peer_role']
+
     delete socket.channels[channel]
     delete channels[channel][socket.id]
     delete peers[channel][socket.id]
@@ -228,16 +243,18 @@ io.sockets.on('connect', (socket) => {
         break
     }
 
+
     console.log('여기 타고 와서 삭제를 하는데')
+    console.log(Object.keys(channels[channel]))
     for (let id in channels[channel]) {
       console.log('전체 채널에 특정 채널 id에 remove peer 이벤트 보냄, config는 socket.id이다. 그냥 id를 보내야 하나?')
-      console.log(id)
+      console.log(id) // 시나리오 4에서 보보면 channels[channel]에 A,B,C가 존재하는지 아니면 A,B만 존재하는 지 체크할 필요 있음.
       console.log('이거 보니까 removePeer가 두개 있다. 하나는 host에 보내고 하나는 자신 제외 peer에 보내는 듯 한데?')
       console.log('이건 channels[channel][id]에 보내는 것. socket.id를 config로 보냄')
-      console.log(channels[channel][id])
-      await channels[channel][id].emit('removePeer', { peer_id: socket.id })
+      // console.log(channels[channel][id])
+      await channels[channel][id].emit('removePeer', { peer_id: socket.id, peer_role: removeRequestPeerRole })
       console.log('이건 socket에 보내는 것. id를 config로 보냄')
-      socket.emit('removePeer', { peer_id: id })
+      socket.emit('removePeer', { peer_id: id, peer_role: removeRequestPeerRole })
     }
   }
 
@@ -308,12 +325,12 @@ io.sockets.on('connect', (socket) => {
 
     log.debug(
       '[' +
-        socket.id +
-        '] kick out peer [' +
-        peer_id +
-        '] from room_id [' +
-        room_id +
-        ']',
+      socket.id +
+      '] kick out peer [' +
+      peer_id +
+      '] from room_id [' +
+      room_id +
+      ']',
     )
 
     sendToPeer(peer_id, sockets, 'kickOut', {
@@ -338,12 +355,12 @@ io.sockets.on('connect', (socket) => {
 
     log.debug(
       '[' +
-        socket.id +
-        '] Peer [' +
-        peer_name +
-        '] send file to room_id [' +
-        room_id +
-        ']',
+      socket.id +
+      '] Peer [' +
+      peer_name +
+      '] send file to room_id [' +
+      room_id +
+      ']',
       {
         peerName: file.peerName,
         fileName: file.fileName,
@@ -362,12 +379,12 @@ io.sockets.on('connect', (socket) => {
 
     log.debug(
       '[' +
-        socket.id +
-        '] Peer [' +
-        peer_name +
-        '] send fileAbort to room_id [' +
-        room_id +
-        ']',
+      socket.id +
+      '] Peer [' +
+      peer_name +
+      '] send fileAbort to room_id [' +
+      room_id +
+      ']',
     )
     sendToRoom(room_id, socket.id, 'fileAbort')
   })
@@ -394,12 +411,12 @@ io.sockets.on('connect', (socket) => {
     if (peer_id) {
       log.debug(
         '[' +
-          socket.id +
-          '] emit videoPlayer to [' +
-          peer_id +
-          '] from room_id [' +
-          room_id +
-          ']',
+        socket.id +
+        '] emit videoPlayer to [' +
+        peer_id +
+        '] from room_id [' +
+        room_id +
+        ']',
         logme,
       )
 
@@ -422,23 +439,12 @@ io.sockets.on('connect', (socket) => {
 
 
 
-  socket.on('chat', (data, callback)=>{
-  return callback(data)
+  socket.on('chat', (data, callback) => {
+    return callback(data)
   })
 
-  socket.on('whiteboardAction', (config) => {
-    log.debug('Whiteboard', config)
-    let room_id = config.room_id
-    sendToRoom(room_id, socket.id, 'whiteboardAction', config)
-  })
 
-  socket.on('likeAdd', (data)=>{
-    const {currentLikeCount, roomId} = data
-    let addedLikeCount = currentLikeCount +1
-    io.sockets.emit('addedLikeCount',addedLikeCount)
-  })
-
-}) 
+})
 
 
 async function sendToRoom(room_id, socket_id, msg, config = {}) {

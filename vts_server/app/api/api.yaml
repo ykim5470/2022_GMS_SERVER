@@ -1,171 +1,182 @@
 swagger: "2.0"
 info: 
-  title: Test API
-  description: Test User API with express
+  title: GMS APIs
+  description: VTS GMS api list
   version: 1.0 
   contact: 
     email: ykim5470@vreducation.kr
   servers: 
-    -url: "https://106.255.237.50:4000/"
+    -url: "https://live.enjoystreet.kr"
     description: Server host url 
+tags: 
+- name: "Auth"
+  description: "로그인"
+- name: "Live Management"
+  description: "라이브관리"
+- name: "My Page"
+  description: "마이페이지"
+- name: "Live Tour (Overall)"
+  descriptionn: "라이브투어(일반)"
 
 schemes: [https]
 
 paths:
-  # /createRoomNumber: 
-  #   get: 
-  #     summary: Returns a random room number
-  #     responses: 
-  #       200:
-  #         description: Success
-  #         schema:
-  #           type: object
-  #           properties:
-  #             roomId:
-  #               type: string
-  #           example: {roomId: e26a3d4c-276e-4794-a310-d093b15beef3}
-  #       400:
-  #         description: User Error (Invalid Request)
-  #       404: 
-  #         description: Not Found Error 
-  #       500:
-  #         description: Internal Server Error 
-
-  # /roomList:
-  #   get:
-  #     summary: Returns a live channel list
-  #     description: Array Return 
-  #     responses:
-  #       200:
-  #         description: Success
-  #         schema:
-  #           type: array
-  #           items:
-  #             type: object
-  #             properties:
-  #               RoomId:
-  #                 type: string,
-  #               setConfig:
-  #                 type: array
-  #                 items:
-  #                   type: object
-  #                   properties:
-  #                     Title:
-  #                       type: string
-  #                     Host:
-  #                       type: string
-  #                     Thumbnail:
-  #                       type: string
-  #                     RoomCategory:
-  #                       type: string
-  #                     CreatedAt:
-  #                       type: string
-  #           example: [{RoomId: ba11a782-c2bf-403c-9902-1794f5779ecb, setConfig: [{Title: test, Host: host, Thumbnail: uploads/GUIDE/streaming/live/thumbnailSource/xxxx.png, RoomCategory: 'living', CreatedAt: '2022-04-12T04:20:58:000Z'}]}]
-  #       400:
-  #         description: User Error (Invalid Request)
-
-                    
-  # /guideRoomList:
-  #     get:
-  #       summary: Returns a whole live channel list
-  #       description: Array Return 
-  #       responses:
-  #         200:
-  #           description: Success
-  #           schema:
-  #             type: array
-  #             items:
-  #               type: object
-  #               properties:
-  #                 RoomId:
-  #                   type: string,
-  #                 setConfig:
-  #                   type: array
-  #                   items:
-  #                     type: object
-  #                     properties:
-  #                       Title:
-  #                         type: string
-  #                       Host:
-  #                         type: string
-  #                       Thumbnail:
-  #                         type: string
-  #                       RoomCategory:
-  #                         type: string
-  #                       CreatedAt:
-  #                         type: string
-  #             example: [{RoomId: ba11a782-c2bf-403c-9902-1794f5779ecb, setConfig: [{Title: test, Host: host, Thumbnail: uploads/GUIDE/streaming/live/thumbnailSource/xxxx.png, RoomCategory: 'living', CreatedAt: '2022-04-12T04:20:58:000Z'}]}]
-  /userInfo:
+  /guideLogin: 
+    post:
+      tags:
+      - "Auth"
+      summary: "Guide User Sign in to the platform"
+      description: ""
+      consumes: 
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "email and password are required to log in"
+        required: true 
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+          example: {email: ykim5470@gmail.com, password: password}
+      responses:
+        405:
+          description: "Invalid input Request"
+        200:
+          description: "Success"
+        404:
+          description: "Not Found Error"
+        500:
+          description: "Internal Server Error"
+  /createRoomNumber:
     get:
-      summary: 사용자 정보 반환
+      tags:
+      - "Live Management"
+      summary: "Get a random room number"
+      description: ""
+      produces:
+      - "application/json"
+      parameters: []
       responses:
         200:
-          description: SUCCESS
+          description: "Success"
           schema:
             type: object
             properties:
-              User:
+              roomId: 
                 type: string
-              Role:
-                type: string
-              Msg:
-                type: string
-              Id:
-                type: string
-            example: {User: user1, Role: user, Msg: 'Hello World', id: '1'}
-
-
-  /registerUserInfo:
-    post:
-      summary: 사용자 정보 등록
-      parameters:
-        - in: body
-          name: userInfo
-          schema:
-            type: object
-            properties:
-              name:
-                type: string
-              role:
-                type: string
-              message:
-                type: string
+                pattern: '^₩d{3}-₩d{2}-₩d{4}$'
+            examples: {roomId: "1-7d3a5976faed4f278f7bfd9c0f56b55d"}
+        500:
+          description: "Internal Server Error"
+  /brandList:
+    get:
+      tags:
+      - "Live Management"
+      summary: "Get registered brand list"
+      description: ""
+      produces:
+      - "application/json"
+      parameters: []
       responses:
-        201:
-          description: Created
-
-  /updateUserInfo:
-    put:
-      summary: 사용자 정보 수정
-      parameters:
-        - in: body
-          name: userInfo
+        200:
+          description: "Success"
           schema:
-            type: object
-            properties:
-              id:
-                type: integer
-              name:
-                type: string
-              role:
-                type: string
-              message:
-                type: string
-      responses:
-        201:
-          description: Updated
+            type: array
+            items:
+              type: object
+              properties:
+                Id:
+                  type: integer
+                Name:
+                  type: string
+              examples: [{Id: 1, Name: DummyStore1}]
+        500:
+          description: "Internal Server Error" 
+  /roomCreate:
+      post:
+        tags:
+        - "Live Management"
+        summary: "uploads an image"
+        description: ""
+        operationId: "uploadFile"
+        consumes:
+        - "multipart/form-data"
+        produces:
+        - "application/json"
+        parameters:
+        - name: "guideInfo"
+          in: "formData"
+          required: true
+          type: object
+        - name: "title"
+          in: "formData"
+          type: string
+        - name: "roomId"
+          in: "formData"
+          type: string
+        - name: "brandConfig"
+          in: "formData"
+          type: object
+        - name: "thumbnail"
+          in: "formData"
+          description: "file to upload"
+          required: true
+          type: file
+        responses:
+          200:
+            description: Success
+          400:
+            description: User Error (Invalid Request)
+          500:
+            description: Internal Server Error 
 
-  /deleteUserInfo:
-    delete:
-      summary: 사용자 정보 수정
-      parameters:
-        - in: body
-          name: userInfo
-          schema:
-            type: object
-            properties:
-              id:
-                type: integer
-      responses:
-        201:
-          description: Deleted
+
+  /recordMediaUpload:
+      post:
+        tags:
+        - "Live Management"
+        summary: "uploads an record media thumbnail and media file"
+        description: ""
+        operationId: "uploadFile"
+        consumes:
+        - "multipart/form-data"
+        produces:
+        - "application/json"
+        parameters:
+        - name: "roomId"
+          in: "formData"
+          required: true
+          type: string
+        - name: "title"
+          in: "formData"
+          type: string
+        - name: "host"
+          in: "formData"
+          type: integer
+        - name: "brandConfig"
+          in: "formData"
+          type: object
+        - name: "resources"
+          in: "formData"
+          description: "Image file to upload"
+          required: true
+          type: file
+        - name: "resources"
+          in: "formData"
+          description: "Media file to upload"
+          required: true
+          type: file
+        responses:
+          200:
+            description: Success
+          400:
+            description: User Error (Invalid Request)
+          500:
+            description: Internal Server Error 
+
+
+  
