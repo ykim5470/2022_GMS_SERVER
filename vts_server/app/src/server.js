@@ -53,7 +53,7 @@ io = new Server({
   maxHttpBufferSize: 1e7,
   pingTimeout: 60000,
   cors: {
-    origin: ['https://live.enjoystreet.kr', 'https://internal.enjoystreet.kr'],
+    origin: ['https://live.enjoystreet.kr', 'https://internal.enjoystreet.kr', 'https://livetest.enjoystreet.kr'],
     methods: ['GET', 'POST'],
     allowedHeaders: ['my-custom-header'],
     credentials: true,
